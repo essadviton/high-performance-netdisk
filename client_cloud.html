@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini HttpServer Client</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    form { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; }
+    input { margin: 5px; }
+  </style>
+</head>
+<body>
+  <h1>HttpServer 客户端</h1>
+
+  <!-- 注册 -->
+  <form id="registerForm">
+    <h2>注册</h2>
+    <input type="text" name="username" placeholder="用户名" required>
+    <input type="password" name="password" placeholder="密码" required>
+    <button type="submit">注册</button>
+  </form>
+
+  <!-- 登录 -->
+  <form id="loginForm">
+    <h2>登录</h2>
+    <input type="text" name="username" placeholder="用户名" required>
+    <input type="password" name="password" placeholder="密码" required>
+    <button type="submit">登录</button>
+  </form>
+
+  <!-- 下载 -->
+  <form id="downloadForm">
+    <h2>下载文件</h2>
+    <input type="text" id="filePath" placeholder="输入文件路径，例如 /index.html" required>
+    <button type="submit">下载</button>
+  </form>
+
+  <script>
+    let currentToken = "";
+
+    // 注册
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const body = new URLSearchParams(formData).toString();
+
+      try {
+        const resp = await fetch("http://101.200.59.91:22222/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body
+        });
+        const text = await resp.text();
+        console.log("注册响应:", text);
+        alert("注册结果: " + text);
+      } catch (err) {
+        alert("注册失败: " + err.message);
+      }
+    });
+
+    // 登录
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const body = new URLSearchParams(formData).toString();
+
+      try {
+        const resp = await fetch("http://101.200.59.91:22222/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body
+        });
+        const text = await resp.text();
+        console.log("登录响应:", text);
+
+        // 提取 JWT token
+        const match = text.match(/([A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+)/);
+        if (match) {
+          currentToken = match[0];
+          alert("登录成功，Token 已保存");
+        } else {
+          alert("登录失败，未找到 token，响应内容: " + text);
+        }
+      } catch (err) {
+        alert("登录请求失败: " + err.message);
+      }
+    });
+
+    // 下载
+    document.getElementById("downloadForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!currentToken) {
+        alert("请先登录获取 Token");
+        return;
+      }
+      const path = document.getElementById("filePath").value;
+
+      try {
+        const resp = await fetch("http://101.200.59.91:22222" + path, {
+          method: "GET",
+          headers: { "Authorization": "Bearer " + currentToken }
+        });
+
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          alert("下载失败: " + resp.status + "\n" + errorText);
+          return;
+        }
+
+        const blob = await resp.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = path.split("/").pop();
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (err) {
+        alert("下载请求失败: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
